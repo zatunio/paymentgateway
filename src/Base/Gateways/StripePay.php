@@ -13,24 +13,28 @@ use Xgenious\Paymentgateway\Traits\PaymentEnvironment;
 class StripePay extends PaymentGatewayBase
 {
 
-    use PaymentEnvironment,CurrencySupport;
+    use PaymentEnvironment, CurrencySupport;
 
     protected $secret_key;
     protected $public_key;
 
-   public function setSecretKey($secret_key){
-       $this->secret_key = $secret_key;
-       return $this;
-   }
-   private function getSecretKey(){
-       return $this->secret_key;
-   }
-    public function setPublicKey($public_key){
-       $this->public_key = $public_key;
-       return $this;
+    public function setSecretKey($secret_key)
+    {
+        $this->secret_key = $secret_key;
+        return $this;
     }
-    private function getPublicKey(){
-       return $this->public_key;
+    private function getSecretKey()
+    {
+        return $this->secret_key;
+    }
+    public function setPublicKey($public_key)
+    {
+        $this->public_key = $public_key;
+        return $this;
+    }
+    private function getPublicKey()
+    {
+        return $this->public_key;
     }
 
 
@@ -42,16 +46,18 @@ class StripePay extends PaymentGatewayBase
     public function charge_amount($amount)
     {
         $return_amount = $amount;
-        if (in_array($this->getCurrency(), $this->supported_currency_list(), true)){
-            if(in_array($this->getCurrency(), $this->zero_decimal_currencies())){
+        if (in_array($this->getCurrency(), $this->supported_currency_list(), true)) {
+            if (in_array($this->getCurrency(), $this->zero_decimal_currencies())) {
                 return $return_amount;
             }
             return $amount * 100;
         }
+        return $amount * 100;
     }
-    private function zero_decimal_currencies(){
+    private function zero_decimal_currencies()
+    {
         return [
-            'BIF','CLP','DJF','GNF','JPY', 'KMF','KRW', 'MGA', 'PYG','RWF','UGX','VND','VUV', 'XAF','XOF', 'XPF'
+            'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF'
         ];
     }
 
@@ -64,14 +70,14 @@ class StripePay extends PaymentGatewayBase
      * @throws \Stripe\Exception\ApiErrorException
      * @since 0.0.1
      */
-    public function ipn_response(array $args = []) : array
+    public function ipn_response(array $args = []): array
     {
         $stripe_session_id = session()->get('stripe_session_id');
         session()->forget('stripe_session_id');
         $stripe_order_id = session()->get('stripe_order_id');
         session()->forget('stripe_order_id');
 
-        $stripe = new StripeClient($this->getSecretKey());
+        $stripe = new StripeClient(env("STRIPE_SECRET_KEY"));
         $response = $stripe->checkout->sessions->retrieve($stripe_session_id, []);
         $payment_intent = $response['payment_intent'] ?? '';
         $payment_status = $response['payment_status'] ?? '';
@@ -87,7 +93,7 @@ class StripePay extends PaymentGatewayBase
             }
         }
 
-        return ['status' => 'failed','order_id' => $stripe_order_id];
+        return ['status' => 'failed', 'order_id' => $stripe_order_id];
     }
 
     /**
@@ -108,27 +114,29 @@ class StripePay extends PaymentGatewayBase
      */
     public function charge_customer(array $args)
     {
-       return $this->stripe_view($args);
+        return $this->stripe_view($args);
     }
 
-    public function stripe_view($args){
-        return view('paymentgateway::stripe', ['stripe_data' => array_merge($args,[
-            'public_key' => $this->getPublicKey(),
-            'currency' => $this->getCurrency(),
-            'secret_key' => base64_encode($this->getSecretKey()),
+    public function stripe_view($args)
+    {
+        return view('paymentgateway::stripe', ['stripe_data' => array_merge($args, [
+            'public_key' => env("STRIPE_PUBLIC_KEY"),
+            'currency' => env("CURRENCY"),
+            'secret_key' => base64_encode(env("STRIPE_SECRET_KEY")),
             'charge_amount' => ceil($this->charge_amount($args['amount'])),
         ])]);
     }
 
-    public function charge_customer_from_controller(array $args){
+    public function charge_customer_from_controller(array $args)
+    {
         Stripe::setApiKey(base64_decode($args['secret_key']));
-        
-         $payment_types = ['card'];
-        
-        if( strtolower($args['currency']) === "myr" ){
+
+        $payment_types = ['card'];
+
+        if (strtolower($args['currency']) === "myr") {
             $payment_types[] = 'fpx';
         }
-        
+
         $session = Session::create([
             'payment_method_types' => $payment_types,
             'line_items' => [[
@@ -157,7 +165,7 @@ class StripePay extends PaymentGatewayBase
      * this will refund payment gateway charge currency
      * @since 0.0.1
      * */
-    public function supported_currency_list() : array
+    public function supported_currency_list(): array
     {
         return [
             'USD',
@@ -310,7 +318,7 @@ class StripePay extends PaymentGatewayBase
     /**
      * this will refund payment gateway name
      * */
-    public function gateway_name() : string
+    public function gateway_name(): string
     {
         return 'stripe';
     }
